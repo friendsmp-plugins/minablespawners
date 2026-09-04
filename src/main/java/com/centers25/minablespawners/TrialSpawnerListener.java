@@ -1,6 +1,5 @@
 package com.centers25.minablespawners;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -8,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Effect;
 import org.bukkit.GameMode;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -18,13 +18,23 @@ import org.bukkit.block.TrialSpawner;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.ItemSpawnEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
@@ -40,11 +50,13 @@ public final class TrialSpawnerListener implements Listener {
 
     private static final long RESTORE_DELAY_TICKS = 2L;
     private static final int DEFAULT_COOLDOWN_TICKS = 36000;
+    private static final int ITEM_FORMAT_VERSION = 2;
 
     private final TrialMinerPlugin plugin;
     private final NamespacedKey idKey;
     private final NamespacedKey cooldownRemainingKey;
     private final NamespacedKey cooldownLengthKey;
+    private final NamespacedKey itemVersionKey;
 
     private final Map<UUID, TrialSpawner> stateCache = new ConcurrentHashMap<>();
 
@@ -53,6 +65,56 @@ public final class TrialSpawnerListener implements Listener {
         this.idKey = new NamespacedKey(plugin, "spawner_state_id");
         this.cooldownRemainingKey = new NamespacedKey(plugin, "spawner_cooldown_remaining");
         this.cooldownLengthKey = new NamespacedKey(plugin, "spawner_cooldown_length");
+        this.itemVersionKey = new NamespacedKey(plugin, "item_format_version");
+    }
+
+    void migrateLoadedItems() {
+        int updated = 0;
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            updated += migrateInventory(player.getInventory());
+            updated += migrateInventory(player.getEnderChest());
+        }
+        for (World world : plugin.getServer().getWorlds()) {
+            for (Chunk chunk : world.getLoadedChunks()) {
+                updated += migrateChunk(chunk);
+            }
+        }
+        if (updated > 0) {
+            plugin.getLogger().info("Updated " + updated + " legacy mined spawner item(s).");
+        }
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        migrateInventory(event.getPlayer().getInventory());
+        migrateInventory(event.getPlayer().getEnderChest());
+    }
+
+    @EventHandler
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        migrateInventory(event.getInventory());
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        migrateChunk(event.getChunk());
+    }
+
+    @EventHandler
+    public void onEntitiesLoad(EntitiesLoadEvent event) {
+        for (Entity entity : event.getEntities()) {
+            migrateEntity(entity);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onItemSpawn(ItemSpawnEvent event) {
+        migrateEntity(event.getEntity());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onItemPickup(EntityPickupItemEvent event) {
+        migrateEntity(event.getItem());
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -134,6 +196,7 @@ public final class TrialSpawnerListener implements Listener {
         }
 
         ItemStack item = event.getItemInHand();
+        migrateItem(item);
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return;
@@ -272,25 +335,102 @@ public final class TrialSpawnerListener implements Listener {
         pdc.set(idKey, PersistentDataType.STRING, id.toString());
         pdc.set(cooldownRemainingKey, PersistentDataType.LONG, cooldownRemaining);
         pdc.set(cooldownLengthKey, PersistentDataType.LONG, (long) cooldownLength);
-
-        boolean ominous = false;
-        try {
-            ominous = state.isOminous();
-        } catch (Throwable ignored) {
-        }
-
-        List<Component> lore = new ArrayList<>();
-        EntityType mob = getSpawnedType(state, ominous);
-        String mobName = mob != null ? prettify(mob.name()) : "Unknown";
-        String itemName = mob == null ? "Trial Spawner" : mobName + " Trial Spawner";
-        meta.displayName(itemText(itemName, NamedTextColor.LIGHT_PURPLE));
-        lore.add(itemField("Mob", mobName, NamedTextColor.WHITE));
-        lore.add(itemField("Variant", ominous ? "Ominous" : "Standard",
-                ominous ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.WHITE));
-        meta.lore(lore);
+        pdc.set(itemVersionKey, PersistentDataType.INTEGER, ITEM_FORMAT_VERSION);
+        applyItemPresentation(meta, state);
 
         drop.setItemMeta(meta);
         return drop;
+    }
+
+    private int migrateChunk(Chunk chunk) {
+        int updated = 0;
+        for (BlockState state : chunk.getTileEntities()) {
+            if (state instanceof org.bukkit.block.Container container) {
+                updated += migrateInventory(container.getInventory());
+            }
+        }
+        for (Entity entity : chunk.getEntities()) {
+            updated += migrateEntity(entity);
+        }
+        return updated;
+    }
+
+    private int migrateEntity(Entity entity) {
+        if (entity instanceof Item item) {
+            ItemStack stack = item.getItemStack();
+            if (migrateItem(stack)) {
+                item.setItemStack(stack);
+                return 1;
+            }
+            return 0;
+        }
+        if (entity instanceof InventoryHolder holder) {
+            return migrateInventory(holder.getInventory());
+        }
+        return 0;
+    }
+
+    private int migrateInventory(Inventory inventory) {
+        int updated = 0;
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            ItemStack item = inventory.getItem(slot);
+            if (migrateItem(item)) {
+                inventory.setItem(slot, item);
+                updated++;
+            }
+        }
+        return updated;
+    }
+
+    private boolean migrateItem(ItemStack item) {
+        if (item == null || item.getType() != Material.TRIAL_SPAWNER) {
+            return false;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        var pdc = meta.getPersistentDataContainer();
+        boolean managed = pdc.has(idKey, PersistentDataType.STRING)
+                || pdc.has(cooldownRemainingKey, PersistentDataType.LONG)
+                || pdc.has(cooldownLengthKey, PersistentDataType.LONG);
+        if (!managed) {
+            return false;
+        }
+        Integer version = pdc.get(itemVersionKey, PersistentDataType.INTEGER);
+        if (version != null && version >= ITEM_FORMAT_VERSION) {
+            return false;
+        }
+
+        TrialSpawner state = null;
+        if (meta instanceof BlockStateMeta blockStateMeta && blockStateMeta.hasBlockState()
+                && blockStateMeta.getBlockState() instanceof TrialSpawner stored) {
+            state = stored;
+        }
+        applyItemPresentation(meta, state);
+        pdc.set(itemVersionKey, PersistentDataType.INTEGER, ITEM_FORMAT_VERSION);
+        item.setItemMeta(meta);
+        return true;
+    }
+
+    private void applyItemPresentation(ItemMeta meta, TrialSpawner state) {
+        boolean ominous = false;
+        if (state != null) {
+            try {
+                ominous = state.isOminous();
+            } catch (Throwable ignored) {
+            }
+        }
+
+        EntityType mob = state == null ? null : getSpawnedType(state, ominous);
+        String mobName = mob == null ? "Unknown" : prettify(mob.name());
+        String itemName = mob == null ? "Trial Spawner" : mobName + " Trial Spawner";
+        meta.displayName(itemText(itemName, NamedTextColor.LIGHT_PURPLE));
+        meta.lore(List.of(
+                itemField("Mob", mobName, NamedTextColor.WHITE),
+                itemField("Variant", ominous ? "Ominous" : "Standard",
+                        ominous ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.WHITE)
+        ));
     }
 
     private static Component itemText(String value, NamedTextColor color) {

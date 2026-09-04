@@ -18,7 +18,9 @@ public final class TrialMinerPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        getServer().getPluginManager().registerEvents(new TrialSpawnerListener(this), this);
+        TrialSpawnerListener listener = new TrialSpawnerListener(this);
+        getServer().getPluginManager().registerEvents(listener, this);
+        getServer().getScheduler().runTask(this, listener::migrateLoadedItems);
         getLogger().info("Mineable Spawners enabled. Trial spawner state will be preserved.");
     }
 
