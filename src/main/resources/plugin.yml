@@ -6,8 +6,8 @@ description: Mine safe trial spawners while preserving configuration, cooldown, 
 author: centers25
 commands:
   trialminer:
-    description: TrialMiner commands.
-    usage: /trialminer <reload|give>
+    description: Manage trial spawner mining.
+    usage: /trialminer <reload|give|debug>
 permissions:
   trialminer.mine:
     description: Allows mining trial spawners and receiving the state-preserving drop.

@@ -30,11 +30,12 @@ public final class TrialMinerPlugin extends JavaPlugin {
         }
         if (args.length == 0) {
             if (sender.hasPermission("trialminer.admin")) {
-                sender.sendMessage("§e/trialminer reload §7- reload config");
-                sender.sendMessage("§e/trialminer give §7- give yourself a trial spawner");
-                sender.sendMessage("§e/trialminer debug §7- dump the targeted spawner's state");
+                sender.sendMessage("§5[Trial Miner] §fCommands");
+                sender.sendMessage("§8• §d/trialminer reload §7— Reload configuration");
+                sender.sendMessage("§8• §d/trialminer give §7— Receive a trial spawner");
+                sender.sendMessage("§8• §d/trialminer debug §7— View targeted spawner data");
             } else {
-                sender.sendMessage("§7TrialMiner: mine trial spawners with Silk Touch.");
+                sender.sendMessage("§5[Trial Miner] §7Mine trial spawners with Silk Touch.");
             }
             return true;
         }
@@ -42,36 +43,36 @@ public final class TrialMinerPlugin extends JavaPlugin {
         switch (args[0].toLowerCase()) {
             case "reload" -> {
                 if (!sender.hasPermission("trialminer.admin")) {
-                    sender.sendMessage("§cYou don't have permission to do that.");
+                    sender.sendMessage("§5[Trial Miner] §7Administrator permission is required.");
                     return true;
                 }
                 reloadConfig();
-                sender.sendMessage("§aTrialMiner config reloaded.");
+                sender.sendMessage("§5[Trial Miner] §dConfiguration reloaded.");
                 return true;
             }
             case "give" -> {
                 if (!sender.hasPermission("trialminer.admin")) {
-                    sender.sendMessage("§cYou don't have permission to do that.");
+                    sender.sendMessage("§5[Trial Miner] §7Administrator permission is required.");
                     return true;
                 }
                 if (!(sender instanceof Player player)) {
-                    sender.sendMessage("§cOnly players can use /trialminer give.");
+                    sender.sendMessage("§5[Trial Miner] §7This command can only be used by a player.");
                     return true;
                 }
                 player.getInventory().addItem(new ItemStack(Material.TRIAL_SPAWNER));
-                player.sendMessage("§aGave you a trial spawner. Place it, configure it, mine it back.");
+                player.sendMessage("§5[Trial Miner] §dTrial spawner added to your inventory.");
                 return true;
             }
             case "debug" -> {
                 if (!sender.hasPermission("trialminer.admin")) {
-                    sender.sendMessage("§cYou don't have permission to do that.");
+                    sender.sendMessage("§5[Trial Miner] §7Administrator permission is required.");
                     return true;
                 }
                 dumpSpawner(sender, args);
                 return true;
             }
             default -> {
-                sender.sendMessage("§cUnknown subcommand. Use /trialminer for help.");
+                sender.sendMessage("§5[Trial Miner] §7Unknown command. Use /trialminer for help.");
                 return true;
             }
         }
@@ -89,7 +90,7 @@ public final class TrialMinerPlugin extends JavaPlugin {
                         : getServer().getWorlds().get(0);
                 block = world.getBlockAt(x, y, z);
             } catch (NumberFormatException ex) {
-                sender.sendMessage("§cUsage: /trialminer debug [<x> <y> <z>]");
+                sender.sendMessage("§5[Trial Miner] §7Usage: /trialminer debug [<x> <y> <z>]");
                 return;
             }
         } else if (sender instanceof Player player) {
@@ -101,44 +102,44 @@ public final class TrialMinerPlugin extends JavaPlugin {
                 }
             }
         } else {
-            sender.sendMessage("§cFrom console, use: /trialminer debug <x> <y> <z>");
+            sender.sendMessage("§5[Trial Miner] §7Console usage: /trialminer debug <x> <y> <z>");
             return;
         }
 
         if (block == null || block.getType() != Material.TRIAL_SPAWNER) {
-            out(sender, "§cNo trial spawner there. Look at/stand on one, or pass coords.");
+            out(sender, "§5[Trial Miner] §7No trial spawner was found at the selected location.");
             return;
         }
 
         long gameTime = block.getWorld().getGameTime();
-        out(sender, "§6=== TrialMiner debug ===");
+        out(sender, "§5[Trial Miner] §fDebug information");
         out(sender, "§7Location: §f" + block.getX() + ", " + block.getY() + ", " + block.getZ()
                 + " §7(" + block.getWorld().getName() + ")");
-        out(sender, "§7World game-time: §f" + gameTime);
+        out(sender, "§7World time: §f" + gameTime);
 
         BlockData data = block.getBlockData();
         if (data instanceof org.bukkit.block.data.type.TrialSpawner sd) {
-            out(sender, "§7BlockData state: §f" + sd.getTrialSpawnerState()
-                    + " §7| ominous(data): §f" + sd.isOminous());
+            out(sender, "§7State: §f" + sd.getTrialSpawnerState()
+                    + " §8• §7Ominous data: §f" + sd.isOminous());
         } else {
-            out(sender, "§7BlockData: §cnot a TrialSpawner block data");
+            out(sender, "§7Block data: §fUnavailable");
         }
 
         BlockState state = block.getState();
         if (!(state instanceof TrialSpawner live)) {
-            out(sender, "§cBlockState is not a TrialSpawner (no block entity?).");
+            out(sender, "§7Block entity: §fUnavailable");
             return;
         }
 
-        out(sender, "ominous(live): " + safe(live::isOminous));
+        out(sender, "§8• §7Ominous: §f" + safe(live::isOminous));
         long cooldownEnd = safeLong(live::getCooldownEnd);
-        out(sender, "cooldownEnd: " + cooldownEnd
+        out(sender, "§8• §7Cooldown end: §f" + cooldownEnd
                 + (cooldownEnd > 0 ? " (" + (cooldownEnd - gameTime) + " ticks left)" : ""));
-        out(sender, "cooldownLength: " + safeLong(live::getCooldownLength));
-        out(sender, "nextSpawnAttempt: " + safeLong(live::getNextSpawnAttempt));
-        out(sender, "requiredPlayerRange: " + safeLong(live::getRequiredPlayerRange));
-        out(sender, "trackedPlayers: " + safe(() -> live.getTrackedPlayers().size()));
-        out(sender, "trackedEntities: " + safe(() -> live.getTrackedEntities().size()));
+        out(sender, "§8• §7Cooldown length: §f" + safeLong(live::getCooldownLength));
+        out(sender, "§8• §7Next spawn attempt: §f" + safeLong(live::getNextSpawnAttempt));
+        out(sender, "§8• §7Required player range: §f" + safeLong(live::getRequiredPlayerRange));
+        out(sender, "§8• §7Tracked players: §f" + safe(() -> live.getTrackedPlayers().size()));
+        out(sender, "§8• §7Tracked entities: §f" + safe(() -> live.getTrackedEntities().size()));
 
         dumpConfig(sender, "normal", safe(live::getNormalConfiguration));
         dumpConfig(sender, "ominous", safe(live::getOminousConfiguration));
@@ -146,23 +147,27 @@ public final class TrialMinerPlugin extends JavaPlugin {
 
     private void dumpConfig(CommandSender sender, String label, Object cfgObj) {
         if (!(cfgObj instanceof TrialSpawnerConfiguration cfg)) {
-            out(sender, "[" + label + "] unavailable");
+            out(sender, "§8[" + title(label) + " configuration] §7Unavailable");
             return;
         }
-        out(sender, "[" + label + " config]");
-        out(sender, "  spawnedType: " + safe(() -> cfg.getSpawnedType()));
-        out(sender, "  spawnedEntity: " + safe(() -> cfg.getSpawnedEntity() != null ? "set" : "null"));
-        out(sender, "  potentialSpawns: " + safe(() -> {
+        out(sender, "§8[" + title(label) + " configuration]");
+        out(sender, "§8• §7Spawned type: §f" + safe(() -> cfg.getSpawnedType()));
+        out(sender, "§8• §7Spawned entity: §f" + safe(() -> cfg.getSpawnedEntity() != null ? "Set" : "None"));
+        out(sender, "§8• §7Potential spawns: §f" + safe(() -> {
             var s = cfg.getPotentialSpawns();
-            return s == null ? "null" : String.valueOf(s.size());
+            return s == null ? "None" : String.valueOf(s.size());
         }));
-        out(sender, "  possibleRewards: " + safe(() -> {
+        out(sender, "§8• §7Possible rewards: §f" + safe(() -> {
             var r = cfg.getPossibleRewards();
-            return r == null ? "null" : String.valueOf(r.size());
+            return r == null ? "None" : String.valueOf(r.size());
         }));
-        out(sender, "  baseSpawns: " + safe(cfg::getBaseSpawnsBeforeCooldown));
-        out(sender, "  simultaneous: " + safe(cfg::getBaseSimultaneousEntities));
-        out(sender, "  spawnRange: " + safe(cfg::getSpawnRange));
+        out(sender, "§8• §7Base spawns: §f" + safe(cfg::getBaseSpawnsBeforeCooldown));
+        out(sender, "§8• §7Simultaneous entities: §f" + safe(cfg::getBaseSimultaneousEntities));
+        out(sender, "§8• §7Spawn range: §f" + safe(cfg::getSpawnRange));
+    }
+
+    private String title(String value) {
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 
     private void out(CommandSender sender, String msg) {
@@ -175,9 +180,9 @@ public final class TrialMinerPlugin extends JavaPlugin {
     private Object safe(java.util.concurrent.Callable<?> getter) {
         try {
             Object v = getter.call();
-            return v == null ? "null" : v;
+            return v == null ? "None" : v;
         } catch (Throwable t) {
-            return "§c<err: " + t.getClass().getSimpleName() + ">";
+            return "Unavailable (" + t.getClass().getSimpleName() + ")";
         }
     }
 

@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Effect;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -32,6 +31,10 @@ import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.spawner.TrialSpawnerConfiguration;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 
 public final class TrialSpawnerListener implements Listener {
 
@@ -73,8 +76,8 @@ public final class TrialSpawnerListener implements Listener {
 
         if (!isSafeToMine(block)) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED
-                    + "You cannot mine a trial spawner while its trial is in progress.");
+            player.sendMessage(Component.text("[Trial Miner] ", NamedTextColor.DARK_PURPLE)
+                    .append(Component.text("This spawner cannot be mined while its trial is active.", NamedTextColor.GRAY)));
             return;
         }
 
@@ -276,16 +279,20 @@ public final class TrialSpawnerListener implements Listener {
         } catch (Throwable ignored) {
         }
 
-        List<String> lore = new ArrayList<>();
+        List<Component> lore = new ArrayList<>();
         EntityType mob = getSpawnedType(state, ominous);
         String mobName = mob != null ? prettify(mob.name()) : "Unknown";
-        lore.add(ChatColor.GRAY + "Mob: " + ChatColor.WHITE + mobName);
-        lore.add(ChatColor.GRAY + "Type: "
-                + (ominous ? ChatColor.GOLD + "Ominous" : ChatColor.AQUA + "Normal"));
-        meta.setLore(lore);
+        meta.displayName(itemText("Trial Spawner", NamedTextColor.LIGHT_PURPLE));
+        lore.add(itemText("Mob: " + mobName, NamedTextColor.GRAY));
+        lore.add(itemText("Type: " + (ominous ? "Ominous" : "Normal"), NamedTextColor.GRAY));
+        meta.lore(lore);
 
         drop.setItemMeta(meta);
         return drop;
+    }
+
+    private static Component itemText(String value, NamedTextColor color) {
+        return Component.text(value, color).decoration(TextDecoration.ITALIC, false);
     }
 
     private EntityType getSpawnedType(TrialSpawner state, boolean ominous) {

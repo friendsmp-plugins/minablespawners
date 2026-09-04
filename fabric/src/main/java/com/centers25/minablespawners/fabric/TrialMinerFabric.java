@@ -46,12 +46,9 @@ public final class TrialMinerFabric implements ModInitializer {
     }
 
     private int showHelp(CommandSourceStack source) {
-        source.sendSuccess(() -> Component.literal("TrialMiner: mine inactive or cooldown trial "
-                + "spawners with Silk Touch."), false);
-        source.sendSuccess(() -> Component.literal("/trialminer give - give yourself a trial spawner"),
-                false);
-        source.sendSuccess(() -> Component.literal("/trialminer debug - inspect the spawner below you"),
-                false);
+        source.sendSuccess(() -> message("Commands", ChatFormatting.WHITE), false);
+        source.sendSuccess(() -> command("/trialminer give", "Receive a trial spawner"), false);
+        source.sendSuccess(() -> command("/trialminer debug", "View spawner data"), false);
         return 1;
     }
 
@@ -59,11 +56,11 @@ public final class TrialMinerFabric implements ModInitializer {
         try {
             ServerPlayer player = source.getPlayerOrException();
             player.getInventory().add(new ItemStack(Blocks.TRIAL_SPAWNER));
-            source.sendSuccess(() -> Component.literal(
-                    "Gave you a trial spawner. Place it, configure it, mine it back."), false);
+            source.sendSuccess(() -> message("Trial spawner added to your inventory.",
+                    ChatFormatting.LIGHT_PURPLE), false);
             return 1;
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException exception) {
-            source.sendFailure(Component.literal("Only players can use /trialminer give."));
+            source.sendFailure(message("This command can only be used by a player.", ChatFormatting.GRAY));
             return 0;
         }
     }
@@ -75,16 +72,17 @@ public final class TrialMinerFabric implements ModInitializer {
             BlockPos pos = player.blockPosition().below();
             BlockState state = level.getBlockState(pos);
             if (!state.is(Blocks.TRIAL_SPAWNER)) {
-                source.sendFailure(Component.literal("Stand on a trial spawner to debug it."));
+                source.sendFailure(message("Stand on a trial spawner to view its data.", ChatFormatting.GRAY));
                 return 0;
             }
 
-            source.sendSuccess(() -> Component.literal("Trial spawner at " + pos.toShortString()
-                    + ": " + state.getValue(TrialSpawnerBlock.STATE)
-                    + ", ominous=" + state.getValue(TrialSpawnerBlock.OMINOUS)), false);
+            source.sendSuccess(() -> message("Debug information", ChatFormatting.WHITE), false);
+            source.sendSuccess(() -> detail("Location", pos.toShortString()), false);
+            source.sendSuccess(() -> detail("State", state.getValue(TrialSpawnerBlock.STATE).toString()), false);
+            source.sendSuccess(() -> detail("Ominous", String.valueOf(state.getValue(TrialSpawnerBlock.OMINOUS))), false);
             return 1;
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException exception) {
-            source.sendFailure(Component.literal("Only players can use /trialminer debug."));
+            source.sendFailure(message("This command can only be used by a player.", ChatFormatting.GRAY));
             return 0;
         }
     }
@@ -103,8 +101,8 @@ public final class TrialMinerFabric implements ModInitializer {
         TrialSpawnerState trialState = state.getValue(TrialSpawnerBlock.STATE);
         if (trialState != TrialSpawnerState.INACTIVE && trialState != TrialSpawnerState.COOLDOWN) {
             if (player instanceof ServerPlayer serverPlayer) {
-                serverPlayer.sendSystemMessage(Component.literal(
-                        "You cannot mine a trial spawner while its trial is in progress."));
+                serverPlayer.sendSystemMessage(message(
+                        "This spawner cannot be mined while its trial is active.", ChatFormatting.GRAY));
             }
             return InteractionResult.FAIL;
         }
@@ -144,12 +142,34 @@ public final class TrialMinerFabric implements ModInitializer {
         }
 
         boolean ominous = state.getValue(TrialSpawnerBlock.OMINOUS);
+        item.set(DataComponents.CUSTOM_NAME, itemText("Trial Spawner", ChatFormatting.LIGHT_PURPLE));
         item.set(DataComponents.LORE, new ItemLore(List.of(
-                Component.literal("Mob: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(mob).withStyle(ChatFormatting.WHITE)),
-                Component.literal("Type: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(ominous ? "Ominous" : "Normal")
-                                .withStyle(ominous ? ChatFormatting.GOLD : ChatFormatting.AQUA)))));
+                itemText("Mob: ", ChatFormatting.GRAY)
+                        .copy().append(itemText(mob, ChatFormatting.WHITE)),
+                itemText("Type: ", ChatFormatting.GRAY)
+                        .copy().append(itemText(ominous ? "Ominous" : "Normal",
+                                ominous ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.GRAY)))));
+    }
+
+    private Component message(String value, ChatFormatting color) {
+        return Component.literal("[Trial Miner] ").withStyle(ChatFormatting.DARK_PURPLE)
+                .append(Component.literal(value).withStyle(color));
+    }
+
+    private Component command(String value, String description) {
+        return Component.literal("• ").withStyle(ChatFormatting.DARK_GRAY)
+                .append(Component.literal(value).withStyle(ChatFormatting.LIGHT_PURPLE))
+                .append(Component.literal(" — " + description).withStyle(ChatFormatting.GRAY));
+    }
+
+    private Component detail(String label, String value) {
+        return Component.literal("• ").withStyle(ChatFormatting.DARK_GRAY)
+                .append(Component.literal(label + ": ").withStyle(ChatFormatting.GRAY))
+                .append(Component.literal(value).withStyle(ChatFormatting.WHITE));
+    }
+
+    private Component itemText(String value, ChatFormatting color) {
+        return Component.literal(value).withStyle(style -> style.withColor(color).withItalic(false));
     }
 
     private String prettifyEntityId(String entityId) {
