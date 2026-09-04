@@ -4,6 +4,7 @@ main: com.centers25.minablespawners.TrialMinerPlugin
 api-version: '26.2'
 description: Mine safe trial spawners while preserving configuration, cooldown, and ominous state.
 author: centers25
+depend: [plugincore]
 commands:
   mineablespawners:
     description: Manage mineable trial spawners.

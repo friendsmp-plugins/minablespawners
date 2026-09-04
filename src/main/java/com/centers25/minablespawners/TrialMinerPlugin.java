@@ -1,5 +1,7 @@
 package com.centers25.minablespawners;
 
+import com.centers25.core.logging.PluginLogger;
+import com.centers25.core.logging.PluginLogs;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -14,14 +16,16 @@ import org.bukkit.spawner.TrialSpawnerConfiguration;
 import org.jetbrains.annotations.NotNull;
 
 public final class TrialMinerPlugin extends JavaPlugin {
+    private PluginLogger log;
 
     @Override
     public void onEnable() {
+        log = PluginLogs.get(this);
         saveDefaultConfig();
         TrialSpawnerListener listener = new TrialSpawnerListener(this);
         getServer().getPluginManager().registerEvents(listener, this);
         getServer().getScheduler().runTask(this, listener::migrateLoadedItems);
-        getLogger().info("Mineable Spawners enabled. Trial spawner state will be preserved.");
+        log.info("Mineable Spawners enabled. Trial spawner state will be preserved.");
     }
 
     @Override
@@ -173,10 +177,8 @@ public final class TrialMinerPlugin extends JavaPlugin {
     }
 
     private void out(CommandSender sender, String msg) {
-        if (sender instanceof Player) {
-            sender.sendMessage(msg);
-        }
-        getLogger().info("[debug] " + org.bukkit.ChatColor.stripColor(msg));
+        sender.sendMessage(msg);
+        log.debug(org.bukkit.ChatColor.stripColor(msg));
     }
 
     private Object safe(java.util.concurrent.Callable<?> getter) {
@@ -195,5 +197,9 @@ public final class TrialMinerPlugin extends JavaPlugin {
         } catch (Throwable t) {
             return -1L;
         }
+    }
+
+    PluginLogger log() {
+        return log;
     }
 }

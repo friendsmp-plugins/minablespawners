@@ -80,7 +80,7 @@ public final class TrialSpawnerListener implements Listener {
             }
         }
         if (updated > 0) {
-            plugin.getLogger().info("Updated " + updated + " legacy mined spawner item(s).");
+            plugin.log().info("Updated " + updated + " legacy mined spawner item(s).");
         }
     }
 
@@ -137,6 +137,8 @@ public final class TrialSpawnerListener implements Listener {
         }
 
         if (!isSafeToMine(block)) {
+            plugin.log().debug("Blocked unsafe trial spawner mining at " + location(block.getLocation())
+                    + " for player " + player.getUniqueId() + ".");
             event.setCancelled(true);
             player.sendMessage(Component.text("[Mineable Spawners] ", NamedTextColor.DARK_PURPLE)
                     .append(Component.text("This spawner cannot be mined while its trial is active.", NamedTextColor.GRAY)));
@@ -170,6 +172,8 @@ public final class TrialSpawnerListener implements Listener {
         }
 
         UUID id = UUID.randomUUID();
+        plugin.log().debug("Mining trial spawner " + id + " at " + location(block.getLocation())
+                + " for player " + player.getUniqueId() + "; cooldown remaining=" + cooldownRemaining + ".");
         stateCache.put(id, spawnerState);
 
         ItemStack drop = buildSpawnerItem(spawnerState, id, cooldownRemaining, cooldownLength);
@@ -289,6 +293,8 @@ public final class TrialSpawnerListener implements Listener {
         }
 
         live.update(true, false);
+        plugin.log().debug("Restored trial spawner state at " + location(loc) + "; cooldown remaining="
+                + cooldownRemaining + ", ominous=" + ominous + ".");
     }
 
     private void copyConfiguration(TrialSpawnerConfiguration from, TrialSpawnerConfiguration to) {
@@ -516,5 +522,10 @@ public final class TrialSpawnerListener implements Listener {
             setter.run();
         } catch (Throwable ignored) {
         }
+    }
+
+    private String location(Location location) {
+        return location.getWorld().getName() + " " + location.getBlockX() + ","
+                + location.getBlockY() + "," + location.getBlockZ();
     }
 }
