@@ -5,13 +5,13 @@ api-version: '26.2'
 description: Mine safe trial spawners while preserving configuration, cooldown, and ominous state.
 author: centers25
 commands:
-  trialminer:
-    description: Manage trial spawner mining.
-    usage: /trialminer <reload|give|debug>
+  mineablespawners:
+    description: Manage mineable trial spawners.
+    usage: /mineablespawners <reload|give|debug>
 permissions:
-  trialminer.mine:
+  mineablespawners.mine:
     description: Allows mining trial spawners and receiving the state-preserving drop.
     default: true
-  trialminer.admin:
+  mineablespawners.admin:
     description: Allows reloading config and giving trial spawner items.
     default: op

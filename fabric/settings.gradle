@@ -5,4 +5,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = 'TrialMiner-Fabric'
+rootProject.name = 'MineableSpawners-Fabric'

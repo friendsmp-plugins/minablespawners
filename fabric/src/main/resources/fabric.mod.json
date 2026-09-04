@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "minablespawners",
   "version": "${version}",
-  "name": "MinableSpawners",
+  "name": "Mineable Spawners",
   "description": "Mine trial spawners while preserving their state.",
   "authors": ["centers25"],
   "environment": "*",

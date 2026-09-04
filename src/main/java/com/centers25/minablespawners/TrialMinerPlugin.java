@@ -19,60 +19,60 @@ public final class TrialMinerPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(new TrialSpawnerListener(this), this);
-        getLogger().info("TrialMiner enabled. Trial spawners can now be mined with their state preserved.");
+        getLogger().info("Mineable Spawners enabled. Trial spawner state will be preserved.");
     }
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
                              @NotNull String label, @NotNull String[] args) {
-        if (!command.getName().equalsIgnoreCase("trialminer")) {
+        if (!command.getName().equalsIgnoreCase("mineablespawners")) {
             return false;
         }
         if (args.length == 0) {
-            if (sender.hasPermission("trialminer.admin")) {
-                sender.sendMessage("§5[Trial Miner] §fCommands");
-                sender.sendMessage("§8• §d/trialminer reload §7— Reload configuration");
-                sender.sendMessage("§8• §d/trialminer give §7— Receive a trial spawner");
-                sender.sendMessage("§8• §d/trialminer debug §7— View targeted spawner data");
+            if (sender.hasPermission("mineablespawners.admin")) {
+                sender.sendMessage("§5[Mineable Spawners] §fCommands");
+                sender.sendMessage("§8• §d/mineablespawners reload §7— Reload configuration");
+                sender.sendMessage("§8• §d/mineablespawners give §7— Receive a trial spawner");
+                sender.sendMessage("§8• §d/mineablespawners debug §7— View targeted spawner data");
             } else {
-                sender.sendMessage("§5[Trial Miner] §7Mine trial spawners with Silk Touch.");
+                sender.sendMessage("§5[Mineable Spawners] §7Mine trial spawners with Silk Touch.");
             }
             return true;
         }
 
         switch (args[0].toLowerCase()) {
             case "reload" -> {
-                if (!sender.hasPermission("trialminer.admin")) {
-                    sender.sendMessage("§5[Trial Miner] §7Administrator permission is required.");
+                if (!sender.hasPermission("mineablespawners.admin")) {
+                    sender.sendMessage("§5[Mineable Spawners] §7Administrator permission is required.");
                     return true;
                 }
                 reloadConfig();
-                sender.sendMessage("§5[Trial Miner] §dConfiguration reloaded.");
+                sender.sendMessage("§5[Mineable Spawners] §dConfiguration reloaded.");
                 return true;
             }
             case "give" -> {
-                if (!sender.hasPermission("trialminer.admin")) {
-                    sender.sendMessage("§5[Trial Miner] §7Administrator permission is required.");
+                if (!sender.hasPermission("mineablespawners.admin")) {
+                    sender.sendMessage("§5[Mineable Spawners] §7Administrator permission is required.");
                     return true;
                 }
                 if (!(sender instanceof Player player)) {
-                    sender.sendMessage("§5[Trial Miner] §7This command can only be used by a player.");
+                    sender.sendMessage("§5[Mineable Spawners] §7This command can only be used by a player.");
                     return true;
                 }
                 player.getInventory().addItem(new ItemStack(Material.TRIAL_SPAWNER));
-                player.sendMessage("§5[Trial Miner] §dTrial spawner added to your inventory.");
+                player.sendMessage("§5[Mineable Spawners] §dTrial spawner added to your inventory.");
                 return true;
             }
             case "debug" -> {
-                if (!sender.hasPermission("trialminer.admin")) {
-                    sender.sendMessage("§5[Trial Miner] §7Administrator permission is required.");
+                if (!sender.hasPermission("mineablespawners.admin")) {
+                    sender.sendMessage("§5[Mineable Spawners] §7Administrator permission is required.");
                     return true;
                 }
                 dumpSpawner(sender, args);
                 return true;
             }
             default -> {
-                sender.sendMessage("§5[Trial Miner] §7Unknown command. Use /trialminer for help.");
+                sender.sendMessage("§5[Mineable Spawners] §7Unknown command. Use /mineablespawners for help.");
                 return true;
             }
         }
@@ -90,7 +90,7 @@ public final class TrialMinerPlugin extends JavaPlugin {
                         : getServer().getWorlds().get(0);
                 block = world.getBlockAt(x, y, z);
             } catch (NumberFormatException ex) {
-                sender.sendMessage("§5[Trial Miner] §7Usage: /trialminer debug [<x> <y> <z>]");
+                sender.sendMessage("§5[Mineable Spawners] §7Usage: /mineablespawners debug [<x> <y> <z>]");
                 return;
             }
         } else if (sender instanceof Player player) {
@@ -102,17 +102,17 @@ public final class TrialMinerPlugin extends JavaPlugin {
                 }
             }
         } else {
-            sender.sendMessage("§5[Trial Miner] §7Console usage: /trialminer debug <x> <y> <z>");
+            sender.sendMessage("§5[Mineable Spawners] §7Console usage: /mineablespawners debug <x> <y> <z>");
             return;
         }
 
         if (block == null || block.getType() != Material.TRIAL_SPAWNER) {
-            out(sender, "§5[Trial Miner] §7No trial spawner was found at the selected location.");
+            out(sender, "§5[Mineable Spawners] §7No trial spawner was found at the selected location.");
             return;
         }
 
         long gameTime = block.getWorld().getGameTime();
-        out(sender, "§5[Trial Miner] §fDebug information");
+        out(sender, "§5[Mineable Spawners] §fDebug information");
         out(sender, "§7Location: §f" + block.getX() + ", " + block.getY() + ", " + block.getZ()
                 + " §7(" + block.getWorld().getName() + ")");
         out(sender, "§7World time: §f" + gameTime);

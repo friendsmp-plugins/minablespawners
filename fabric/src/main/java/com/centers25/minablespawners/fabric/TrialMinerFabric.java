@@ -37,7 +37,7 @@ public final class TrialMinerFabric implements ModInitializer {
     public void onInitialize() {
         AttackBlockCallback.EVENT.register(this::onAttackBlock);
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
-                dispatcher.register(Commands.literal("trialminer")
+                dispatcher.register(Commands.literal("mineablespawners")
                         .executes(context -> showHelp(context.getSource()))
                         .then(Commands.literal("give")
                                 .executes(context -> giveSpawner(context.getSource())))
@@ -47,8 +47,8 @@ public final class TrialMinerFabric implements ModInitializer {
 
     private int showHelp(CommandSourceStack source) {
         source.sendSuccess(() -> message("Commands", ChatFormatting.WHITE), false);
-        source.sendSuccess(() -> command("/trialminer give", "Receive a trial spawner"), false);
-        source.sendSuccess(() -> command("/trialminer debug", "View spawner data"), false);
+        source.sendSuccess(() -> command("/mineablespawners give", "Receive a trial spawner"), false);
+        source.sendSuccess(() -> command("/mineablespawners debug", "View spawner data"), false);
         return 1;
     }
 
@@ -142,17 +142,16 @@ public final class TrialMinerFabric implements ModInitializer {
         }
 
         boolean ominous = state.getValue(TrialSpawnerBlock.OMINOUS);
-        item.set(DataComponents.CUSTOM_NAME, itemText("Trial Spawner", ChatFormatting.LIGHT_PURPLE));
+        String itemName = "Unknown".equals(mob) ? "Trial Spawner" : mob + " Trial Spawner";
+        item.set(DataComponents.CUSTOM_NAME, itemText(itemName, ChatFormatting.LIGHT_PURPLE));
         item.set(DataComponents.LORE, new ItemLore(List.of(
-                itemText("Mob: ", ChatFormatting.GRAY)
-                        .copy().append(itemText(mob, ChatFormatting.WHITE)),
-                itemText("Type: ", ChatFormatting.GRAY)
-                        .copy().append(itemText(ominous ? "Ominous" : "Normal",
-                                ominous ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.GRAY)))));
+                itemField("Mob", mob, ChatFormatting.WHITE),
+                itemField("Variant", ominous ? "Ominous" : "Standard",
+                        ominous ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.WHITE))));
     }
 
     private Component message(String value, ChatFormatting color) {
-        return Component.literal("[Trial Miner] ").withStyle(ChatFormatting.DARK_PURPLE)
+        return Component.literal("[Mineable Spawners] ").withStyle(ChatFormatting.DARK_PURPLE)
                 .append(Component.literal(value).withStyle(color));
     }
 
@@ -170,6 +169,12 @@ public final class TrialMinerFabric implements ModInitializer {
 
     private Component itemText(String value, ChatFormatting color) {
         return Component.literal(value).withStyle(style -> style.withColor(color).withItalic(false));
+    }
+
+    private Component itemField(String label, String value, ChatFormatting valueColor) {
+        return itemText("• ", ChatFormatting.DARK_GRAY).copy()
+                .append(itemText(label + ": ", ChatFormatting.GRAY))
+                .append(itemText(value, valueColor));
     }
 
     private String prettifyEntityId(String entityId) {

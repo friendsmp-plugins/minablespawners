@@ -76,7 +76,7 @@ public final class TrialSpawnerListener implements Listener {
 
         if (!isSafeToMine(block)) {
             event.setCancelled(true);
-            player.sendMessage(Component.text("[Trial Miner] ", NamedTextColor.DARK_PURPLE)
+            player.sendMessage(Component.text("[Mineable Spawners] ", NamedTextColor.DARK_PURPLE)
                     .append(Component.text("This spawner cannot be mined while its trial is active.", NamedTextColor.GRAY)));
             return;
         }
@@ -282,9 +282,11 @@ public final class TrialSpawnerListener implements Listener {
         List<Component> lore = new ArrayList<>();
         EntityType mob = getSpawnedType(state, ominous);
         String mobName = mob != null ? prettify(mob.name()) : "Unknown";
-        meta.displayName(itemText("Trial Spawner", NamedTextColor.LIGHT_PURPLE));
-        lore.add(itemText("Mob: " + mobName, NamedTextColor.GRAY));
-        lore.add(itemText("Type: " + (ominous ? "Ominous" : "Normal"), NamedTextColor.GRAY));
+        String itemName = mob == null ? "Trial Spawner" : mobName + " Trial Spawner";
+        meta.displayName(itemText(itemName, NamedTextColor.LIGHT_PURPLE));
+        lore.add(itemField("Mob", mobName, NamedTextColor.WHITE));
+        lore.add(itemField("Variant", ominous ? "Ominous" : "Standard",
+                ominous ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.WHITE));
         meta.lore(lore);
 
         drop.setItemMeta(meta);
@@ -293,6 +295,12 @@ public final class TrialSpawnerListener implements Listener {
 
     private static Component itemText(String value, NamedTextColor color) {
         return Component.text(value, color).decoration(TextDecoration.ITALIC, false);
+    }
+
+    private static Component itemField(String label, String value, NamedTextColor valueColor) {
+        return itemText("• ", NamedTextColor.DARK_GRAY)
+                .append(itemText(label + ": ", NamedTextColor.GRAY))
+                .append(itemText(value, valueColor));
     }
 
     private EntityType getSpawnedType(TrialSpawner state, boolean ominous) {
@@ -330,7 +338,7 @@ public final class TrialSpawnerListener implements Listener {
 
     private boolean mayMine(Player player) {
         if (plugin.getConfig().getBoolean("require-permission", true)
-                && !player.hasPermission("trialminer.mine")) {
+                && !player.hasPermission("mineablespawners.mine")) {
             return false;
         }
         if (plugin.getConfig().getBoolean("require-silk-touch", true)
