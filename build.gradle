@@ -1,0 +1,37 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.centers25'
+version = '1.0.0'
+
+repositories {
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(26)
+    }
+}
+
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:26.2.build.112-stable'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 26
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('plugin.yml') {
+        expand(version: project.version)
+    }
+}
+
+tasks.named('jar') {
+    archiveFileName = 'minablespawners.jar'
+}

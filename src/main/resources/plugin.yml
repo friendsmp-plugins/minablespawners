@@ -1,0 +1,17 @@
+name: minablespawners
+version: '${version}'
+main: com.centers25.minablespawners.TrialMinerPlugin
+api-version: '26.2'
+description: Mine safe trial spawners while preserving configuration, cooldown, and ominous state.
+author: centers25
+commands:
+  trialminer:
+    description: TrialMiner commands.
+    usage: /trialminer <reload|give>
+permissions:
+  trialminer.mine:
+    description: Allows mining trial spawners and receiving the state-preserving drop.
+    default: true
+  trialminer.admin:
+    description: Allows reloading config and giving trial spawner items.
+    default: op
