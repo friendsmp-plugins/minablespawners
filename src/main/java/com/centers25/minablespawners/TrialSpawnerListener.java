@@ -24,18 +24,21 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockDamageEvent;
+import org.bukkit.event.block.BlockDamageAbortEvent;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -57,6 +60,10 @@ public final class TrialSpawnerListener implements Listener {
     private final NamespacedKey cooldownRemainingKey;
     private final NamespacedKey cooldownLengthKey;
     private final NamespacedKey itemVersionKey;
+
+    private record MiningSession(BukkitTask task, Location location) {}
+
+    private final Map<UUID, MiningSession> miningTasks = new ConcurrentHashMap<>();
 
     private final Map<UUID, TrialSpawner> stateCache = new ConcurrentHashMap<>();
 
@@ -117,22 +124,92 @@ public final class TrialSpawnerListener implements Listener {
         migrateEntity(event.getItem());
     }
 
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-    public void onLeftClick(PlayerInteractEvent event) {
-        if (event.getAction() != Action.LEFT_CLICK_BLOCK) {
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onDamage(BlockDamageEvent event) {
+        Block block = event.getBlock();
+        Player player = event.getPlayer();
+        if (block.getType() != Material.TRIAL_SPAWNER) {
             return;
         }
-        if (event.getHand() != null && event.getHand() != EquipmentSlot.HAND) {
+        stopMining(player);
+        if (!mayMine(player)) {
+            event.setCancelled(true);
             return;
         }
+        if (!isSafeToMine(block)) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("This spawner cannot be mined while its trial is active.", NamedTextColor.GRAY));
+            return;
+        }
+        event.setCancelled(true);
+        ItemStack startingTool = player.getInventory().getItemInMainHand().clone();
+        BlockData obsidian = Material.OBSIDIAN.createBlockData();
+        Location miningLocation = block.getLocation();
+        BukkitTask task = new BukkitRunnable() {
+            private float progress;
+            private int lastStage = -1;
 
-        Block block = event.getClickedBlock();
-        if (block == null || block.getType() != Material.TRIAL_SPAWNER) {
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.getGameMode() != GameMode.SURVIVAL
+                        || block.getType() != Material.TRIAL_SPAWNER
+                        || !block.equals(player.getTargetBlockExact(6))
+                        || !startingTool.equals(player.getInventory().getItemInMainHand())
+                        || !mayMine(player) || !isSafeToMine(block)) {
+                    stopMining(player);
+                    return;
+                }
+                BlockData trial = block.getBlockData();
+                float trialDivisor = !trial.requiresCorrectToolForDrops() || trial.isPreferredTool(startingTool) ? 30f : 100f;
+                float obsidianDivisor = obsidian.isPreferredTool(startingTool) ? 30f : 100f;
+                progress += block.getBreakSpeed(player)
+                        * obsidian.getDestroySpeed(startingTool, true) / trial.getDestroySpeed(startingTool, true)
+                        * trialDivisor / obsidianDivisor;
+                int stage = Math.min(9, (int) (progress * 10f));
+                if (stage != lastStage && progress < 1f) {
+                    player.sendBlockDamage(miningLocation, Math.min(1f, (stage + 0.5f) / 9f), -player.getEntityId());
+                    lastStage = stage;
+                }
+                if (progress >= 1f) {
+                    stopMining(player);
+                    player.breakBlock(block);
+                }
+            }
+        }.runTaskTimer(plugin, 1L, 1L);
+        miningTasks.put(player.getUniqueId(), new MiningSession(task, miningLocation));
+    }
+
+    @EventHandler
+    public void onDamageAbort(BlockDamageAbortEvent event) {
+        if (event.getBlock().getType() == Material.TRIAL_SPAWNER) {
+            stopMining(event.getPlayer());
+        }
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        stopMining(event.getPlayer());
+    }
+
+    private void stopMining(Player player) {
+        MiningSession session = miningTasks.remove(player.getUniqueId());
+        if (session != null) {
+            session.task().cancel();
+            player.sendBlockDamage(session.location(), 0f, -player.getEntityId());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onBreak(BlockBreakEvent event) {
+        Block block = event.getBlock();
+        if (block.getType() != Material.TRIAL_SPAWNER) {
             return;
         }
 
         Player player = event.getPlayer();
+        stopMining(player);
         if (!mayMine(player)) {
+            event.setCancelled(true);
             return;
         }
 
@@ -150,7 +227,8 @@ public final class TrialSpawnerListener implements Listener {
             return;
         }
 
-        event.setCancelled(true);
+        event.setDropItems(false);
+        event.setExpToDrop(0);
 
         World world = block.getWorld();
 
@@ -183,8 +261,6 @@ public final class TrialSpawnerListener implements Listener {
         if (plugin.getConfig().getBoolean("break-effect", true)) {
             world.playEffect(block.getLocation(), Effect.STEP_SOUND, block.getType());
         }
-
-        block.setType(Material.AIR, false);
 
         boolean creative = player.getGameMode() == GameMode.CREATIVE;
         if (!creative || plugin.getConfig().getBoolean("drop-in-creative", true)) {
