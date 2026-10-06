@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.bukkit.Effect;
+import org.bukkit.Particle;
 import org.bukkit.GameMode;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -53,13 +53,14 @@ public final class TrialSpawnerListener implements Listener {
 
     private static final long RESTORE_DELAY_TICKS = 2L;
     private static final int DEFAULT_COOLDOWN_TICKS = 36000;
-    private static final int ITEM_FORMAT_VERSION = 2;
+    private static final int ITEM_FORMAT_VERSION = 3;
 
     private final TrialMinerPlugin plugin;
     private final NamespacedKey idKey;
     private final NamespacedKey cooldownRemainingKey;
     private final NamespacedKey cooldownLengthKey;
     private final NamespacedKey itemVersionKey;
+    private final NamespacedKey ominousKey;
 
     private record MiningSession(BukkitTask task, Location location) {}
 
@@ -73,6 +74,7 @@ public final class TrialSpawnerListener implements Listener {
         this.cooldownRemainingKey = new NamespacedKey(plugin, "spawner_cooldown_remaining");
         this.cooldownLengthKey = new NamespacedKey(plugin, "spawner_cooldown_length");
         this.itemVersionKey = new NamespacedKey(plugin, "item_format_version");
+        this.ominousKey = new NamespacedKey(plugin, "spawner_ominous");
     }
 
     void migrateLoadedItems() {
@@ -141,7 +143,9 @@ public final class TrialSpawnerListener implements Listener {
             player.sendMessage(Component.text("This spawner cannot be mined while its trial is active.", NamedTextColor.GRAY));
             return;
         }
-        event.setCancelled(true);
+        if (player.getGameMode() != GameMode.SURVIVAL) {
+            return;
+        }
         ItemStack startingTool = player.getInventory().getItemInMainHand().clone();
         BlockData obsidian = Material.OBSIDIAN.createBlockData();
         Location miningLocation = block.getLocation();
@@ -181,7 +185,8 @@ public final class TrialSpawnerListener implements Listener {
 
     @EventHandler
     public void onDamageAbort(BlockDamageAbortEvent event) {
-        if (event.getBlock().getType() == Material.TRIAL_SPAWNER) {
+        MiningSession session = miningTasks.get(event.getPlayer().getUniqueId());
+        if (session != null && session.location().equals(event.getBlock().getLocation())) {
             stopMining(event.getPlayer());
         }
     }
@@ -207,6 +212,10 @@ public final class TrialSpawnerListener implements Listener {
         }
 
         Player player = event.getPlayer();
+        if (player.getGameMode() == GameMode.SURVIVAL && miningTasks.containsKey(player.getUniqueId())) {
+            event.setCancelled(true);
+            return;
+        }
         stopMining(player);
         if (!mayMine(player)) {
             event.setCancelled(true);
@@ -259,7 +268,8 @@ public final class TrialSpawnerListener implements Listener {
         Location center = block.getLocation().add(0.5, 0.5, 0.5);
 
         if (plugin.getConfig().getBoolean("break-effect", true)) {
-            world.playEffect(block.getLocation(), Effect.STEP_SOUND, block.getType());
+            world.spawnParticle(Particle.BLOCK, center, 30, 0.3, 0.3, 0.3, block.getBlockData());
+            world.playSound(center, block.getBlockData().getSoundGroup().getBreakSound(), 1f, 1f);
         }
 
         boolean creative = player.getGameMode() == GameMode.CREATIVE;
@@ -307,6 +317,10 @@ public final class TrialSpawnerListener implements Listener {
 
         Long storedLength = pdc.get(cooldownLengthKey, PersistentDataType.LONG);
 
+        Byte storedOminous = pdc.get(ominousKey, PersistentDataType.BYTE);
+        if (source != null && storedOminous != null) {
+            source.setOminous(storedOminous != 0);
+        }
         final TrialSpawner src = source;
         final long cooldownRemaining = remaining != null ? remaining : 0L;
         final int cooldownLength = storedLength != null && storedLength > 0
@@ -418,6 +432,7 @@ public final class TrialSpawnerListener implements Listener {
         pdc.set(cooldownRemainingKey, PersistentDataType.LONG, cooldownRemaining);
         pdc.set(cooldownLengthKey, PersistentDataType.LONG, (long) cooldownLength);
         pdc.set(itemVersionKey, PersistentDataType.INTEGER, ITEM_FORMAT_VERSION);
+        pdc.set(ominousKey, PersistentDataType.BYTE, (byte) (state.isOminous() ? 1 : 0));
         applyItemPresentation(meta, state);
 
         drop.setItemMeta(meta);
@@ -504,6 +519,10 @@ public final class TrialSpawnerListener implements Listener {
             }
         }
 
+        Byte storedOminous = meta.getPersistentDataContainer().get(ominousKey, PersistentDataType.BYTE);
+        if (storedOminous != null) {
+            ominous = storedOminous != 0;
+        }
         EntityType mob = state == null ? null : getSpawnedType(state, ominous);
         String mobName = mob == null ? "Unknown" : prettify(mob.name());
         String itemName = mob == null ? "Trial Spawner" : mobName + " Trial Spawner";

@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'com.centers25'
-version = '1.0.0'
+version = '1.0.1'
 
 repositories {
     maven { url = 'https://repo.papermc.io/repository/maven-public/' }
@@ -17,13 +17,13 @@ java {
 }
 
 dependencies {
-    compileOnly 'io.papermc.paper:paper-api:26.2.build.112-stable'
+    compileOnly 'io.papermc.paper:paper-api:26.3.build.151-beta'
     compileOnly files('libs/plugincore-api.jar')
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.release = 26
+    options.release = 25
 }
 
 processResources {

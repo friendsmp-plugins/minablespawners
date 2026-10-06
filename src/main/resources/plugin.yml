@@ -1,7 +1,7 @@
 name: minablespawners
 version: '${version}'
 main: com.centers25.minablespawners.TrialMinerPlugin
-api-version: '26.2'
+api-version: '26.3'
 description: Mine safe trial spawners while preserving configuration, cooldown, and ominous state.
 author: centers25
 depend: [plugincore]
