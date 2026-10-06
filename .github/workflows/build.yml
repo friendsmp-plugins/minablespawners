@@ -34,7 +34,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           mkdir -p build/release
-          cp build/libs/minablespawners.jar build/release/minablespawners-paper.jar
+          cp build/libs/minablespawners.jar build/release/minablespawners.jar
           cp fabric/build/libs/minablespawners.jar build/release/minablespawners-fabric.jar
       - uses: softprops/action-gh-release@v2
         if: github.event_name == 'push'
@@ -43,5 +43,5 @@ jobs:
           name: Latest build
           body: Latest minable spawners build.
           files: |
-            build/release/minablespawners-paper.jar
+            build/release/minablespawners.jar
             build/release/minablespawners-fabric.jar
